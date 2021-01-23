@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Result</title>
+    <link rel="stylesheet" href="../static/style.css">
+    <style>
+        /* .container {
+            height: 90vh;
+        } */
+
+        /* th,
+        td {
+            border: 1px solid black;
+        } */
+
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        tr:nth-child(odd) {
+            background-color: #4caf50;
+        }
+
+        /* table {
+            border-collapse: collapse;
+            width: 70%;
+            height: 70vh;
+            font-size: 30px;
+        } */
+    </style>
+</head>
+
+<body>
+    <div class="container d-flex flex-column justify-content-center align-items-center">
+        <h2 class="my-4">Government Senior Secondary School, Baori</h2>
+        <table class="table table-bordered border-dark">
+            <tr>
+                <th>Roll Number</th>
+                <td>
+                    <%=rlno%>
+                </td>
+            </tr>
+            <tr>
+                <th>Name</th>
+                <td>
+                    <%=name%>
+                </td>
+            </tr>
+            <tr>
+                <th>Hindi</th>
+                <td>
+                    <%=hin%>
+                </td>
+            </tr>
+            <tr>
+                <th>English</th>
+                <td>
+                    <%=eng%>
+                </td>
+            </tr>
+            <tr>
+                <th>Physics</th>
+                <td>
+                    <%=phy%>
+                </td>
+            </tr>
+            <tr>
+                <th>Chemistry</th>
+                <td>
+                    <%=chem%>
+                </td>
+            </tr>
+            <tr>
+                <th>Maths/Bio</th>
+                <td>
+                    <%=math_bio%>
+                </td>
+            </tr>
+            <tr>
+                <th>Total</th>
+                <td>
+                    <%=total%>
+                </td>
+            </tr>
+            <tr>
+                <th>Percentage</th>
+                <td>
+                    <%=prcntg%>
+                </td>
+            </tr>
+        </table>
+        <button class="btn btn-success" onclick="prnt()">Print</button>
+    </div>
+    <script src="../static/script.js"></script>
+</body>
+
+</html>

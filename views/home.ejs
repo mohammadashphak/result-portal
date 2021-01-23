@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="../static/style.css">
+    <style>
+        input::-webkit-inner-spin-button,
+        input::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container d-flex flex-column my-4">
+        <form action="result" method="POST">
+            <p>
+                <span class="fs-md-3">Enter Your Roll Number: </span>
+                <input name="rlno" type="number" class="form-control" required>
+            </p>
+
+            <p>
+                <span class="fs-md-3">Choose your class: </span>
+                <select name="classno" id="classno" class="form-select" required>
+                    <option disabled selected value>Class</option>
+                    <option value="12">12th</option>
+                    <option value="10">10th</option>
+                </select>
+            </p>
+
+            <p>
+                <span class="fs-md-3">Select Year: </span>
+                <select name="year" id="year" class="form-select" required>
+                    <option disabled selected value>Year</option>
+                    <option value="2020">2020</option>
+                </select>
+            </p>
+
+            <p>
+                <button class="btn btn-primary me-2" type="submit">Get Result</button>
+                <button class="btn btn-danger ms-2" type="reset">Reset</button>
+            </p>
+        </form>
+
+        <p>
+            <span class="fs-md-3">Click here to upload result file - </span>
+            <button class="btn btn-secondary"><a class="text-light text-decoration-none" href="auth">Upload</a></button>
+        </p>
+    </div>
+</body>
+
+</html>
