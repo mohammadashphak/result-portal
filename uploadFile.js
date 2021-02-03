@@ -1,19 +1,20 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const xlsx = require('xlsx');
+const mongoose = require('mongoose');
+const express = require('express');
+const { resultTwelfthSchema, resultTenthSchema } = require('./schema');
+
+const router = express.Router();
 
 // var upload = multer({ dest: "Upload_folder_name" }) 
 // If you do not want to use diskStorage then uncomment it 
 
-
 var storage = multer.diskStorage({
     destination: function (req, file, cb) {
-
-        if (!fs.existsSync('uploads')) {
-            fs.mkdirSync('uploads');
-        }
-        // Uploads is the Upload_folder_name 
-        cb(null, "uploads");
+ // Upload_folder_name 
+ cb(null, "");
     },
     filename: function (req, file, cb) {
         cb(null, `mag.xlsx`);
@@ -43,11 +44,12 @@ var upload = multer({
     }
     // 'file' is the name of file attribute 
 }).single("file");
-uploadFile = (req, res, next) => {
 
+// Upload file to server
+router.post("/uploadFile", function (req, res, next) {
     // Error MiddleWare for multer file upload, so if any 
     // error occurs, the image would not be uploaded! 
-    upload(req, res, function (err) {
+    upload(req, res, async function (err) {
 
         if (err) {
 
@@ -57,16 +59,74 @@ uploadFile = (req, res, next) => {
             res.send(err);
         }
         else {
-
-            // SUCCESS, image successfully uploaded 
-            res.send("Success, File uploaded!");
             classno = req.body.classno;
             year = req.body.year;
-            fs.rename("uploads/mag.xlsx", `uploads/${classno}_${year}.xlsx`, () => {
-            });
+            let workbook = xlsx.readFile(`mag.xlsx`);
+            let worksheet = workbook.Sheets['Sheet1'];
+            let data = xlsx.utils.sheet_to_json(worksheet);
+
+            if (classno == 12) {
+                data = await data.map((record) => {
+                    record.AttNo = record[`Att. No.`];
+                    delete record[`Att. No.`];
+                    record.RollNo = record[`Roll No.`];
+                    delete record[`Roll No.`];
+                    record.Maths_Bio = record[`Maths/Bio`];
+                    delete record[`Maths/Bio`];
+                    return record;
+                });
+        
+                const Result = mongoose.model(`${classno}_${year}`, resultTwelfthSchema);
+        
+                try {
+                    await Result.deleteMany({ AttNo: { $gte: 1 } })
+                } catch (error) {
+                    res.send(error); // Failure
+                }
+
+                try {
+                    result = await Result.collection.insertMany(data);
+                    res.send("Success, File uploaded!");
+                } catch (error) {
+                    return res.send(error);
+                }
+            }
+            else if (classno == 10) {
+                data = await data.map((record) => {
+                    record.AttNo = record[`Att. No.`];
+                    delete record[`Att. No.`];
+                    record.RollNo = record[`Roll No.`];
+                    delete record[`Roll No.`];
+                    record.SocScience = record[`Soc. Science`];
+                    delete record[`Soc. Science`];
+                    return record;
+                });
+        
+                const Result = mongoose.model(`${classno}_${year}`, resultTenthSchema);
+        
+                try {
+                    await Result.deleteMany({ AttNo: { $gte: 1 } })
+                } catch (error) {
+                    res.send(error); // Failure
+                }
+
+                try {
+                    result = await Result.collection.insertMany(data);
+                    res.send("Success, File uploaded!");
+                } catch (error) {
+                    return res.send(error);
+                }
+            }
+            
+       // Delete File
+       try {
+        fs.unlinkSync(`./mag.xlsx`);
+        //file removed
+    } catch (error) {
+        res.send(error);
+    }     
         }
     });
+});
 
-};
-
-module.exports = { uploadFile }
+module.exports = router

@@ -1,9 +1,12 @@
-auth = (req, res, next) => {
-    res.render('auth');
-    next();
-}
+const express = require('express');
 
-uploadPage = (req, res, next) => {
+const router = express.Router();
+// Authentication
+router.get('/auth', (req, res) => {
+    res.render('auth');
+});
+// Upload Page
+router.post('/uploadPage', (req, res) => {
     password = req.body.password;
     if (password == `indian`) {
         res.render('upload');
@@ -11,7 +14,6 @@ uploadPage = (req, res, next) => {
     else {
         res.send('Enter a valid password!');
     }
-    next();
-}
+});
 
-module.exports = { auth, uploadPage };
+module.exports = router;
