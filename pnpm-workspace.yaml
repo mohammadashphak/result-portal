@@ -1,0 +1,5 @@
+# These packages are pinned in pnpm-lock.yaml and were published recently.
+# Allow them explicitly so pnpm's minimum release age policy does not block installs.
+minimumReleaseAgeExclude:
+  - read-excel-file@9.3.17
+  - worker-f@0.1.24

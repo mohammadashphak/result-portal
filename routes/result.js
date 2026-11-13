@@ -4,74 +4,87 @@ const { resultTwelfthSchema, resultTenthSchema } = require("../model/schema");
 
 const router = express.Router();
 
+const RESULT_CONFIG = {
+    12: {
+        schema: resultTwelfthSchema,
+        view: "result12",
+        fields: [
+            "RollNo",
+            "Name",
+            "FatherName",
+            "Hindi",
+            "English",
+            "Physics",
+            "Chemistry",
+            "Maths_Bio",
+            "Total",
+        ],
+    },
+    10: {
+        schema: resultTenthSchema,
+        view: "result10",
+        fields: [
+            "RollNo",
+            "Name",
+            "FatherName",
+            "Hindi",
+            "English",
+            "Science",
+            "SocScience",
+            "Maths",
+            "Sanskrit",
+            "Total",
+        ],
+    },
+};
+
+function formatPercentage(value) {
+    const percentage = Number(value);
+    return Number.isFinite(percentage)
+        ? `${(percentage * 100).toFixed(2)}%`
+        : "Not available";
+}
+
 // Result
 router.post("/result", async (req, res) => {
-    RollNo = req.body.RollNo;
-    RollNo = parseInt(RollNo);
-    classno = req.body.classno;
-    year = req.body.year;
+    const classno = String(req.body.classno || "");
+    const year = String(req.body.year || "");
+    const rollNoInput = String(req.body.RollNo ?? "").trim();
+    const RollNo = Number(rollNoInput);
+    const config = RESULT_CONFIG[classno];
 
-    if (classno == 12) {
-        const Result = await mongoose.model(
-            `${classno}_${year}`,
-            resultTwelfthSchema
-        );
+    if (
+        !config ||
+        !/^\d{4}$/.test(year) ||
+        rollNoInput === "" ||
+        !Number.isInteger(RollNo) ||
+        RollNo < 0
+    ) {
+        return res.render("notfound");
+    }
 
-        try {
-            const result = await Result.collection.findOne({ RollNo: RollNo });
-            console.log(
-                "🚀 ~ file: result.js:22 ~ router.post ~ result",
-                result
-            );
-            if (!result) {
-                res.render("notfound");
-            } else {
-                res.render("result12", {
-                    RollNo: result["RollNo"],
-                    Name: result["Name"],
-                    FatherName: result["FatherName"],
-                    Hindi: result["Hindi"],
-                    English: result["English"],
-                    Physics: result["Physics"],
-                    Chemistry: result["Chemistry"],
-                    Maths_Bio: result["Maths_Bio"],
-                    Total: result["Total"],
-                    Percentage: `${(result["Percentage"] * 100).toFixed(2)}%`,
-                });
-            }
-        } catch (error) {
-            res.status(404).send(error);
+    const modelName = `${classno}_${year}`;
+    const Result =
+        mongoose.models[modelName] ||
+        mongoose.model(modelName, config.schema);
+
+    try {
+        const result = await Result.findOne({ RollNo }).lean();
+
+        if (!result) {
+            return res.render("notfound");
         }
-    } else if (classno == 10) {
-        const Result = await mongoose.model(
-            `${classno}_${year}`,
-            resultTenthSchema
-        );
 
-        try {
-            const result = await Result.collection.findOne({ RollNo: RollNo });
-            if (!result) {
-                res.render("notfound");
-            } else {
-                res.render("result10", {
-                    RollNo: result["RollNo"],
-                    Name: result["Name"],
-                    FatherName: result["FatherName"],
-                    Hindi: result["Hindi"],
-                    English: result["English"],
-                    Science: result["Science"],
-                    SocScience: result["SocScience"],
-                    Maths: result["Maths"],
-                    Sanskrit: result["Sanskrit"],
-                    Total: result["Total"],
-                    Percentage: `${(result["Percentage"] * 100).toFixed(2)}%`,
-                });
-            }
-        } catch (error) {
-            res.status(404).send(error);
+        const viewData = {};
+        for (const field of config.fields) {
+            viewData[field] = result[field];
         }
-    } else {
-        res.render("notFound");
+        viewData.Percentage = formatPercentage(result.Percentage);
+
+        res.render(config.view, viewData);
+    } catch (error) {
+        console.error("Failed to fetch result:", error);
+        res.status(500).send("Could not fetch the result.");
     }
 });
 

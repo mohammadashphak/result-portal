@@ -1,12 +1,14 @@
 const mongoose = require("mongoose");
 
-main().catch((err) => console.log(err));
+async function connectDB() {
+    const databaseUrl = process.env.DATABASE_URL;
 
-async function main() {
-    await mongoose.connect(process.env.DATABASE_URL, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-    });
+    if (!databaseUrl) {
+        throw new Error("DATABASE_URL is not set");
+    }
 
-    // use `await mongoose.connect('mongodb://user:password@127.0.0.1:27017/test');` if your database has auth enabled
+    await mongoose.connect(databaseUrl);
+    console.log("MongoDB connected");
 }
+
+module.exports = connectDB;

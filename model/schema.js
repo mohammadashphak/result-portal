@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-const db = require("../db/db");
 
 const resultTwelfthSchema = new mongoose.Schema({
     AttNo: Number,

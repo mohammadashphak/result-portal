@@ -1,108 +1,159 @@
-const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
-const xlsx = require("xlsx");
-const mongoose = require("mongoose");
 const express = require("express");
+const path = require("path");
+const multer = require("multer");
+const mongoose = require("mongoose");
+const { readSheet } = require("read-excel-file/node");
 const { resultTwelfthSchema, resultTenthSchema } = require("../model/schema");
 
 const router = express.Router();
 
+const RESULT_CONFIG = {
+    12: {
+        schema: resultTwelfthSchema,
+        columns: {
+            "Att. No.": "AttNo",
+            "Roll No.": "RollNo",
+            "Father Name": "FatherName",
+            "Maths/Bio": "Maths_Bio",
+        },
+    },
+    10: {
+        schema: resultTenthSchema,
+        columns: {
+            "Att. No.": "AttNo",
+            "Roll No.": "RollNo",
+            "Father Name": "FatherName",
+            "Soc. Science": "SocScience",
+        },
+    },
+};
+
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+    fileFilter: (req, file, cb) => {
+        if (path.extname(file.originalname).toLowerCase() !== ".xlsx") {
+            return cb(new Error("Only .xlsx files are supported."));
+        }
+        cb(null, true);
+    },
+}).single("result-file");
+
+// Convert the rows returned by read-excel-file into objects keyed by the
+// header row, matching the old xlsx `sheet_to_json` behaviour.
+function rowsToRecords(rows) {
+    const [headerRow, ...dataRows] = rows;
+    if (!headerRow) return [];
+
+    const headers = headerRow.map((header) => {
+        if (header === null || header === undefined) return null;
+        const name = String(header).trim();
+        return name === "" ? null : name;
+    });
+
+    return dataRows
+        .filter((row) =>
+            row.some((cell) => cell !== null && cell !== undefined && cell !== "")
+        )
+        .map((row) => {
+            const record = {};
+            headers.forEach((header, index) => {
+                if (header !== null) {
+                    record[header] = row[index] ?? null;
+                }
+            });
+            return record;
+        });
+}
+
+function renameColumns(records, columns) {
+    return records.map((record) => {
+        const normalized = { ...record };
+        for (const [source, target] of Object.entries(columns)) {
+            normalized[target] = normalized[source];
+            delete normalized[source];
+        }
+        return normalized;
+    });
+}
+
 // Sample File Download
 router.post("/sample", (req, res) => {
-    sample = req.body.sample;
-    if (sample == "Class 12th") {
-        res.download("./sample/12th.xlsx");
-    }
-    if (sample == "Class 10th") {
-        res.download("./sample/10th.xlsx");
-    }
-});
+    const sampleFiles = {
+        "Class 12th": "12th.xlsx",
+        "Class 10th": "10th.xlsx",
+    };
+    const fileName = sampleFiles[req.body.sample];
 
-var storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, "");
-    },
-    filename: function (req, file, cb) {
-        cb(null, `mag.xlsx`); //Appending extension
-    },
-});
+    if (!fileName) {
+        return res.status(400).send("Unknown sample file.");
+    }
 
-var upload = multer({ storage: storage }).single("result-file");
+    res.download(path.join(__dirname, "..", "sample", fileName));
+});
 
 // Upload file to server
-router.post("/uploadFile", upload, async function (req, res) {
-    classno = req.body.classno;
-    year = req.body.year;
-    let workbook = xlsx.readFile(`./mag.xlsx`);
-    let worksheet = workbook.Sheets["Sheet1"];
-    let data = xlsx.utils.sheet_to_json(worksheet);
+router.post("/uploadFile", (req, res) => {
+    upload(req, res, async (uploadError) => {
+        if (uploadError) {
+            return res
+                .status(400)
+                .send(uploadError.message || "File upload failed.");
+        }
 
-    if (classno == 12) {
-        data = await data.map((record) => {
-            record.AttNo = record[`Att. No.`];
-            delete record[`Att. No.`];
-            record.RollNo = record[`Roll No.`];
-            delete record[`Roll No.`];
-            record.FatherName = record[`Father Name`];
-            delete record[`Father Name`];
-            record.Maths_Bio = record[`Maths/Bio`];
-            delete record[`Maths/Bio`];
-            return record;
-        });
-        const Result = mongoose.model(
-            `${classno}_${year}`,
-            resultTwelfthSchema
-        );
+        const classno = String(req.body.classno || "");
+        const year = String(req.body.year || "");
+        const config = RESULT_CONFIG[classno];
 
+        if (!config) {
+            return res.status(400).send("Please select a valid class.");
+        }
+        if (!/^\d{4}$/.test(year)) {
+            return res.status(400).send("Please select a valid year.");
+        }
+        if (!req.file) {
+            return res
+                .status(400)
+                .send("Please choose an .xlsx file to upload.");
+        }
+
+        let records;
         try {
-            await Result.deleteMany({ AttNo: { $gte: 1 } });
+            const rows = await readSheet(req.file.buffer);
+            records = renameColumns(rowsToRecords(rows), config.columns);
         } catch (error) {
-            res.send(error); // Failure
+            console.error("Failed to read uploaded Excel file:", error);
+            return res
+                .status(400)
+                .send(
+                    "Could not read the uploaded file. Please upload a valid .xlsx file."
+                );
+        }
+
+        if (records.length === 0) {
+            return res
+                .status(400)
+                .send("The uploaded file does not contain any result rows.");
         }
 
         try {
-            result = await Result.collection.insertMany(data);
+            const modelName = `${classno}_${year}`;
+            const Result =
+                mongoose.models[modelName] ||
+                mongoose.model(modelName, config.schema);
+
+            // Replace the previous result set for this class and year.
+            await Result.deleteMany({});
+            await Result.insertMany(records);
+
             res.render("success");
         } catch (error) {
-            return res.send(error);
+            console.error("Failed to import results:", error);
+            res.status(500).send(
+                "Could not import the uploaded results. Please check the file and try again."
+            );
         }
-    } else if (classno == 10) {
-        data = await data.map((record) => {
-            record.AttNo = record[`Att. No.`];
-            delete record[`Att. No.`];
-            record.RollNo = record[`Roll No.`];
-            delete record[`Roll No.`];
-            record.FatherName = record[`Father Name`];
-            delete record[`Father Name`];
-            record.SocScience = record[`Soc. Science`];
-            delete record[`Soc. Science`];
-            return record;
-        });
-
-        const Result = mongoose.model(`${classno}_${year}`, resultTenthSchema);
-
-        try {
-            await Result.deleteMany({ AttNo: { $gte: 1 } });
-        } catch (error) {
-            res.send(error); // Failure
-        }
-
-        try {
-            result = await Result.collection.insertMany(data);
-            res.render("success");
-        } catch (error) {
-            return res.send(error);
-        }
-    }
-
-    // Delete File
-    try {
-        fs.unlinkSync(`./mag.xlsx`);
-        //file removed
-    } catch (error) {
-        res.send(error);
-    }
+    });
 });
 
 module.exports = router;
